@@ -27,4 +27,4 @@ If you'd like to contribute to the app, feel free to submit a pull request with 
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the  Apache-2.0 license - see the LICENSE file for details.
