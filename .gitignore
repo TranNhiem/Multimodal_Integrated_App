@@ -1,0 +1,26 @@
+# Python files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Compiled files
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# Log files
+*.log
+*.swp
+
+# IDE files
+.vscode/
+.idea/
+
+# Data files
+*.csv
+*.json
+*.pkl
+*.xlsx
