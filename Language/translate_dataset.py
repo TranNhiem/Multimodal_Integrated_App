@@ -30,12 +30,19 @@ import re
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer, WordNetLemmatizer
 from nltk.tokenize import word_tokenize
-from nltk import download
+import nltk
+#nltk.data.path.append('/home/rick/nltk_data')
+# nltk.download('stopwords')  # Add this line to download stopwords explicitly
+# nltk.download('wordnet')
+# nltk.data.path.append('/path/to/nltk_data')
+
+# nltk.download()
+#nltk.download("wordnet", force=True)
+
 ##  Download Original English Dataset Version
 #url = "https://raw.githubusercontent.com/tatsu-lab/stanford_alpaca/main/alpaca_data.json"
 # url="https://raw.githubusercontent.com/gururise/AlpacaDataCleaned/main/alpaca_data_cleaned.json"
 # response = requests.get(url)
-
 # output_file = "./data/alpaca_52k_instruction_cleaned.json"
 # if response.status_code == 200:
 #     with open(output_file, 'wb') as f:
@@ -55,7 +62,6 @@ API_BASE = "https://sslgroupservice.openai.azure.com/"
 API_VERSION = "2023-03-15-preview" #"2022-06-01-preview"#"2023-03-15-preview"
 API_KEY = os.getenv("OPENAI_API_KEY")
 MODEL = "text-davinci-003"#"gpt-3.5-turbo" #"gpt-35-turbo" for Azure API, OpenAI API "gpt-3.5-turbo"#"gpt-4", "text-davinci-003"
-
 
 TARGET_LANGUAGE = "Traditional Chinese language" #"Vietnamese language"
 CHUNK_SIZE = 5
@@ -85,20 +91,111 @@ def write_json_file(data, file_path):
 
 ##----------- Start PREPROCESSING TEXT ------------------------
 
+# def remove_urls(text):
+#     url_pattern = re.compile(r'https?://\S+|www\.\S+')
+#     return url_pattern.sub(r'', text)
+
+# def remove_html_tags(text):
+#     html_pattern = re.compile(r'<.*?>')
+#     return html_pattern.sub(r'', text)
+
+# def remove_special_characters(text, keep_chars="'.,!?"):
+#     pattern = re.compile(f'[^A-Za-z0-9{keep_chars}\s]')
+#     return pattern.sub(r'', text)
+
+# def matches_regex(regex, text):
+#     return bool(re.compile(regex).search(text))
+
+# def contains_code(text):
+#     code_blacklist = ['&&', '||', '<html>', ';\n', 'SELECT']
+#     return (
+#         any(code_keyword in text for code_keyword in code_blacklist) or
+#         matches_regex(r'\w+\(\w*\) \{', text) or
+#         matches_regex(r'def \w+\(', text) or
+#         matches_regex(r'\[A-z]+\.[A-z]+', text) or
+#         matches_regex(r': [\w\.#]{1,12};', text) or
+#         matches_regex(r'<\/\w+>', text)
+#     )
+
+# def preprocess_text(text, remove_digits=False, to_lowercase=False, remove_stopwords=False, stemming=False, lemmatization=False, keep_chars="'.,!?", remove_code=False):
+    
+#     def remove_punctuation(text):
+#         return ''.join(c if c not in string.punctuation or c == '-' else ' ' for c in text)
+  
+#     # Remove URLs
+#     text = remove_urls(text)
+
+#     # Remove HTML tags
+#     text = remove_html_tags(text)
+
+#     # Remove special characters
+#     text = remove_special_characters(text, keep_chars=keep_chars)
+
+#     # Remove extra whitespace
+#     text = re.sub(r'\s+', ' ', text).strip()
+
+#     # Remove code content
+#     if remove_code:
+#         text = re.sub(r'(?s)(?P<tag><code>.*?</code>)', '', text)
+
+#     if remove_digits:
+#         text = re.sub(r'\d+', '', text)
+
+#     if to_lowercase:
+#         text = text.lower()
+#     # Call the remove_punctuation function
+#     text = remove_punctuation(text)
+   
+    
+#     if remove_stopwords or stemming or lemmatization:
+#         tokens = word_tokenize(text)
+#         if remove_stopwords:
+#             #stop_words = set(stopwords.words('english'))
+#             stop_words = set(stopwords.words('english')).union(set(stopwords.words('english')))
+#             text = " ".join([word for word in text.split() if word not in stop_words])
+#         if stemming:
+#             stemmer = PorterStemmer()
+#             tokens = [stemmer.stem(token) for token in tokens]
+
+#         if lemmatization:
+#             lemmatizer = WordNetLemmatizer()
+#             tokens = [lemmatizer.lemmatize(token) for token in tokens]
+
+#         text = ' '.join(tokens)
+
+#     return text
+
+# # Check if the given text contains words
+# def contains_words(text):
+#     return matches_regex(r'[A-z]{3,}', text)
+
+# # Check if the given text is translatable
+# def is_translatable(text):
+#     if text == "":
+#         return False
+#     return (contains_code(text) is False) and contains_words(text)
+
+import spacy
+
+# Load the SpaCy English language model
+nlp = spacy.load("en_core_web_sm")
+
 def remove_urls(text):
-    url_pattern = re.compile(r'https?://\S+|www\.\S+')
-    return url_pattern.sub(r'', text)
+    # Implementation using SpaCy
+    doc = nlp(text)
+    text_without_urls = " ".join([token.text for token in doc if not token.like_url])
+    return text_without_urls
 
 def remove_html_tags(text):
+    # Implementation using regular expressions
     html_pattern = re.compile(r'<.*?>')
     return html_pattern.sub(r'', text)
 
+def matches_regex(regex, text):
+    return bool(re.compile(regex).search(text))
 def remove_special_characters(text, keep_chars="'.,!?"):
     pattern = re.compile(f'[^A-Za-z0-9{keep_chars}\s]')
     return pattern.sub(r'', text)
-
-def matches_regex(regex, text):
-    return bool(re.compile(regex).search(text))
 
 def contains_code(text):
     code_blacklist = ['&&', '||', '<html>', ';\n', 'SELECT']
@@ -115,8 +212,8 @@ def preprocess_text(text, remove_digits=False, to_lowercase=False, remove_stopwo
     
     def remove_punctuation(text):
         return ''.join(c if c not in string.punctuation or c == '-' else ' ' for c in text)
-  
-    # Remove URLs
+
+    # Remove URLs using SpaCy
     text = remove_urls(text)
 
     # Remove HTML tags
@@ -137,23 +234,27 @@ def preprocess_text(text, remove_digits=False, to_lowercase=False, remove_stopwo
 
     if to_lowercase:
         text = text.lower()
+
     # Call the remove_punctuation function
     text = remove_punctuation(text)
-   
-    
+
     if remove_stopwords or stemming or lemmatization:
-        tokens = word_tokenize(text)
+        # Tokenize the text using SpaCy
+        doc = nlp(text)
+
         if remove_stopwords:
-            download('stopwords')  # Add this line to download stopwords explicitly
-            stop_words = set(stopwords.words('english'))
-            text = " ".join([word for word in text.split() if word not in stop_words])
+            # Remove stop words using SpaCy
+            tokens = [token.text for token in doc if not token.is_stop]
+        else:
+            tokens = [token.text for token in doc]
+
         if stemming:
-            stemmer = PorterStemmer()
-            tokens = [stemmer.stem(token) for token in tokens]
+            # Perform stemming using SpaCy's Lemmatizer
+            tokens = [token.lemma_ for token in doc]
 
         if lemmatization:
-            lemmatizer = WordNetLemmatizer()
-            tokens = [lemmatizer.lemmatize(token) for token in tokens]
+            # Perform lemmatization using SpaCy's Lemmatizer
+            tokens = [token.lemma_ for token in doc]
 
         text = ' '.join(tokens)
 
@@ -168,7 +269,6 @@ def is_translatable(text):
     if text == "":
         return False
     return (contains_code(text) is False) and contains_words(text)
-
 
 ##-----------END  PREPROCESSING TEXT ------------------------
 
@@ -208,7 +308,7 @@ def save_translated_subset_to_json(translated_subset_df, file_path):
 
 def translate_text(text):
     if is_translatable(text):
-        preprocessed_text = preprocess_text(text, remove_digits=False, to_lowercase=True, remove_stopwords=True, stemming=True, lemmatization=True, remove_code=True)
+        preprocessed_text = preprocess_text(text, remove_digits=False, to_lowercase=True, remove_stopwords=False, stemming=True, lemmatization=False, remove_code=True)
         translated_text = translate_text_openai(preprocessed_text)
         return translated_text
     else:
@@ -237,14 +337,12 @@ def test_translation(df, start=0,end=4, subset=True):
     # print("\nTranslated subset:")
     # print(translated_subset_df)
 
-
 ### Update The Code To Process Text into Chunk & also Using Multi-Thread 
-
 def process_chunks_openai(chunks):
     translated_texts = []
     for text in chunks:
         if is_translatable(text):
-            preprocessed_text = preprocess_text(text, remove_digits=False, to_lowercase=True, remove_stopwords=True, stemming=True, lemmatization=True, remove_code=True)
+            preprocessed_text = preprocess_text(text, remove_digits=False, to_lowercase=True, remove_stopwords=False, stemming=True, lemmatization=True, remove_code=True)
             translated_text = translate_text_openai(preprocessed_text)
             translated_texts.append(translated_text)
         else:
@@ -280,19 +378,18 @@ def test_translation_update(df, start=0, end=4, subset=True):
                                          'input': translated_inputs,
                                          'output': translated_outputs})
 
-    save_translated_subset_to_json(translated_subset_df, './data/output/translated_Traditional_Chinese_GPT3_0_10k.json')
+    save_translated_subset_to_json(translated_subset_df, './data/output/translated_Traditional_Chinese_GPT3_0k_10k.json')
 
-def main():
-        setup_api(api="azure") # "azure"
-        input_data = load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json")
-        ## get the length of the dataframe
-        # df_length = len(input_data)
-        # # print the length
-        ## Old Version 
-        #test_translation(input_data, start=0,end=10000, subset=True)
-
-        # print(f"The length of the dataframe is: {df_length}")
-        test_translation_update(input_data, start=0,end=10000, subset=True)
+# def main():
+#         setup_api(api="azure") # "azure"
+#         input_data = load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json")
+#         ## get the length of the dataframe
+#         # df_length = len(input_data)
+#         # # print the length
+#         ## Old Version 
+#         #test_translation(input_data, start=0,end=10000, subset=True)
+#         # print(f"The length of the dataframe is: {df_length}")
+#         test_translation_update(input_data, start=0,end=10000, subset=True)
 
 
 ##****************************************************************
@@ -325,27 +422,18 @@ weight_path="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/pretrained_weights
 # Create the weight_path if it is not exist 
 if not os.path.exists(weight_path): 
     os.makedirs(weight_path)
+# Initialize the tokenizer and model
+tokenizer = AutoTokenizer.from_pretrained("facebook/nllb-200-distilled-1.3B")
+model = AutoModelForSeq2SeqLM.from_pretrained("facebook/nllb-200-distilled-1.3B")
 
-def translate_text_nllb(text, source_language, target_language):
-    tokenizer = AutoTokenizer.from_pretrained("facebook/nllb-200-distilled-1.3B",cache_dir=weight_path )#cache_dir=NLLB_path
-    
-    #tokenizer = NllbTokenizer.from_pretrained("facebook/nllb-200-distilled-1.3B", cache_dir=weight_path)
-    model = AutoModelForSeq2SeqLM.from_pretrained("facebook/nllb-200-distilled-1.3B", cache_dir=weight_path)
-   
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model=model.to(device)
-    # # Check if GPU is available
-    # Tokenize and encode the text
+# Check if GPU is available
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = model.to(device)
+# Translation function
+async def translate_text_nllb(text, source_language, target_language):
     inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=600)
-    
-    # Move the input tokens to the GPU if available
     inputs = {k: v.to(device) for k, v in inputs.items()}
 
-    # translator_prompt = pipeline('translation', model=model, tokenizer=tokenizer, src_lang=source_language, tgt_lang=target_language, max_length=800)
-    # prompt = translator_prompt(text)[0]
-    # translated_text = prompt['translation_text']
-
-    # Generate the translation
     translated_tokens = model.generate(
         **inputs,
         forced_bos_token_id=tokenizer.lang_code_to_id[target_language],
@@ -353,18 +441,48 @@ def translate_text_nllb(text, source_language, target_language):
         early_stopping=True
     )
 
-    # Decode the translation
     translated_text = tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)[0]
-
-    # del translator_prompt
-    # del tokenizer
-    # del model
-    #torch.cuda.empty_cache()
     return translated_text
+
+# def translate_text_nllb(text, source_language, target_language):
+#     tokenizer = AutoTokenizer.from_pretrained("facebook/nllb-200-distilled-1.3B",cache_dir=weight_path )#cache_dir=NLLB_path
+    
+#     #tokenizer = NllbTokenizer.from_pretrained("facebook/nllb-200-distilled-1.3B", cache_dir=weight_path)
+#     model = AutoModelForSeq2SeqLM.from_pretrained("facebook/nllb-200-distilled-1.3B", cache_dir=weight_path)
+   
+#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#     model=model.to(device)
+#     # # Check if GPU is available
+#     # Tokenize and encode the text
+#     inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=600)
+    
+#     # Move the input tokens to the GPU if available
+#     inputs = {k: v.to(device) for k, v in inputs.items()}
+
+#     # translator_prompt = pipeline('translation', model=model, tokenizer=tokenizer, src_lang=source_language, tgt_lang=target_language, max_length=800)
+#     # prompt = translator_prompt(text)[0]
+#     # translated_text = prompt['translation_text']
+
+#     # Generate the translation
+#     translated_tokens = model.generate(
+#         **inputs,
+#         forced_bos_token_id=tokenizer.lang_code_to_id[target_language],
+#         max_length=800,
+#         early_stopping=True
+#     )
+
+#     # Decode the translation
+#     translated_text = tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)[0]
+
+#     # del translator_prompt
+#     # del tokenizer
+#     # del model
+#     #torch.cuda.empty_cache()
+#     return translated_text
 
 def translate_dataframe_subset(text):
     if is_translatable(text):
-        preprocessed_text = preprocess_text(text, remove_digits=False, to_lowercase=True, remove_stopwords=True, stemming=True, lemmatization=True, remove_code=True)
+        preprocessed_text = preprocess_text(text, remove_digits=False, to_lowercase=True, remove_stopwords=False, stemming=True, lemmatization=True, remove_code=True)
         translated_text = translate_text_nllb(preprocessed_text, source_langage['🇱🇷 English'], source_langage['🇻🇳 Vietnamese'])
         return translated_text
     else:
@@ -395,12 +513,83 @@ def translate_and_save_to_json(dataset, output_file, start, end, subset=True):
     save_translated_subset_to_json(pd.DataFrame(translations), output_file)
 
 
+
+### Processing Text into Chunk of Data 
+def process_chunks_nllb(chunks):
+    translated_texts = []
+    for text in chunks:
+        if is_translatable(text):
+            preprocessed_text = preprocess_text(text, remove_digits=False, to_lowercase=True, remove_stopwords=False, stemming=True, lemmatization=True, remove_code=True)
+            translated_text = translate_text_nllb(preprocessed_text, source_langage['🇱🇷 English'], source_langage['🇻🇳 Vietnamese'])
+            translated_texts.append(translated_text)
+        else:
+            translated_texts.append(text)
+    return translated_texts
+
+def translate_text_nllb_parallel(texts, chunk_size=70):
+    
+    chunked_texts = [texts[i:i + chunk_size] for i in range(0, len(texts), chunk_size)]
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(process_chunks_nllb, chunk) for chunk in chunked_texts]
+        results = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+    translated_texts = []
+    for result in results:
+        translated_texts.extend(result)
+
+    return translated_texts
+
+def translate_and_save_to_json_update(dataset, output_file, start, end, subset=True):
+    translations = []
+    if subset:
+        dataset = dataset.iloc[start:end]
+
+    translated_instructions = translate_text_nllb_parallel(dataset['instruction'].tolist())
+    translated_inputs = translate_text_nllb_parallel(dataset['input'].tolist())
+    translated_outputs = translate_text_nllb_parallel(dataset['output'].tolist())
+
+    for instruction, input_text, output_text in zip(translated_instructions, translated_inputs, translated_outputs):
+        translations.append({
+            "instruction": instruction,
+            "input": input_text,
+            "output": output_text
+        })
+
+    save_translated_subset_to_json(pd.DataFrame(translations), output_file)
+
 # def main():
 #     input_data = load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json")
 #     df_length = len(input_data)
 #     # # print the length
 #     print(f"The length of the dataframe is: {df_length}")
-#     translate_and_save_to_json(input_data, output_file="./data/output/NLLB_translations_Vietnamese_40k_51k76.json", start=40000, end=51760,subset=True)
+#     translate_and_save_to_json_update(input_data, output_file="./data/output/NLLB_translations_Vietnamese_test.json", start=0, end=4,subset=True)
+
+# Main function
+async def main():
+    input_data = load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json")
+    df_length = len(input_data)
+    print(f"The length of the dataframe is: {df_length}")
+
+    # Translate in parallel
+    translated_texts = await asyncio.gather(
+        *[translate_text_nllb(preprocess_text(text), source_language['🇱🇷 English'], source_language['🇻🇳 Vietnamese']) for text in input_data['instruction']]
+    )
+
+    # Store the translations in a DataFrame
+    translations_df = pd.DataFrame({
+        "instruction": translated_texts,
+        "input": input_data["input"],
+        "output": input_data["output"]
+    })
+
+    # Save the translations to a JSON file
+    save_translated_subset_to_json(translations_df, output_file="./data/output/NLLB_translations_Vietnamese_test_1.json")
+
+# Run the asyncio event loop
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main())
+
 
 if __name__ == "__main__":
     start_time = time.time()
