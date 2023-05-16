@@ -9,4 +9,7 @@ Pipeline Fine-tune LLM via LoRa Alpaca Pipeline
 2. Finetuned Model --> Further Compression to 8Bit or 4 Bit Quantization --> Further Distill to smaller Model 
 3. Building APP for ChatBot Conversation 
 
+
+List of Inference Language Model 
+https://huggingface.co/NousResearch 4bit Quantization 
 '''

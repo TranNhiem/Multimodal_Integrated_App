@@ -61,9 +61,9 @@ API_TYPE = "azure"
 API_BASE = "https://sslgroupservice.openai.azure.com/"
 API_VERSION = "2023-03-15-preview" #"2022-06-01-preview"#"2023-03-15-preview"
 API_KEY = os.getenv("OPENAI_API_KEY")
-MODEL = "text-davinci-003"#"gpt-3.5-turbo" #"gpt-35-turbo" for Azure API, OpenAI API "gpt-3.5-turbo"#"gpt-4", "text-davinci-003"
+MODEL = "gpt-35-turbo"#"gpt-3.5-turbo" #"gpt-35-turbo" for Azure API, OpenAI API "gpt-3.5-turbo"#"gpt-4", "text-davinci-003"
 
-TARGET_LANGUAGE = "Traditional Chinese language" #"Vietnamese language"
+TARGET_LANGUAGE = "Vietnamese language" #"Vietnamese language"
 CHUNK_SIZE = 5
 OUTPUT_DIR = "./data/output/"
 
@@ -76,7 +76,8 @@ def setup_api(api="azure"):
         openai.api_key = API_KEY
     else:
         openai.organization = "org-PVVobcsgsTm9RT8Ez5DubzbX" # Central IT account
-        openai.api_key = API_KEY
+        #openai.api_key = API_KEY
+        openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Load input data as DataFrame
 def load_input_data(INPUT_TASKS_PATH):
@@ -271,8 +272,14 @@ def is_translatable(text):
     return (contains_code(text) is False) and contains_words(text)
 
 ##-----------END  PREPROCESSING TEXT ------------------------
+# Delay between API calls to stay within rate limits
+def delay_between_requests():
+    time.sleep(2)  # Adjust the delay time as needed
+
+
 
 def translate_text_openai(text):
+    delay_between_requests()  # Add delay before each API call
     if not text.strip():
         return ""
     # if ' ' in text:
@@ -281,21 +288,36 @@ def translate_text_openai(text):
     #     prompt= f'Please provide the {TARGET_LANGUAGE} translation for the following word: {text}'
     #prompt = f"Please translate the following English text to {TARGET_LANGUAGE} : {text}"
     # prompt= f" English text: {text} translation into Traditional Chinese language: " # Not greate result
-    # prompt=f"Translate the following English text to Tradutuib language: {text}"
+    # prompt= f"Translate the following English text to Traditional language: {text}"
     # prompt= f'Please provide the {TARGET_LANGUAGE} translation for these sentences: {text}'
-    prompt = f'Translate the following English text into {TARGET_LANGUAGE}: "{text}"'
-    response = openai.Completion.create(
-        engine=MODEL, 
-        prompt=prompt, 
-        max_tokens=800, 
-        stop=None, 
-        temperature=0.3,
-        top_p=1.0,
-        frequency_penalty=0.0,
-        presence_penalty=0.0
-    )
-    translated_text = response.choices[0].text.strip()
-    return translated_text.split('\n')[-1].strip()
+    # prompt = f'Translate the following English text into {TARGET_LANGUAGE}: "{text}"'
+    
+    # response = openai.Completion.create(
+    #     engine=MODEL, 
+    #     prompt=prompt, 
+    #     max_tokens=800, 
+    #     stop=None, 
+    #     temperature=0.01,
+    #     top_p=1.0,
+    #     frequency_penalty=0.0,
+    #     presence_penalty=0.0
+    # )
+    # translated_text = response.choices[0].text.strip()
+    # return translated_text.split('\n')[-1].strip()
+    response = openai.ChatCompletion.create(
+    engine=MODEL,
+    messages=[
+        {"role": "system", "content": f'Translate the following English text into {TARGET_LANGUAGE}:'},
+        {"role": "user", "content": text}
+    ],
+    max_tokens=800,
+    temperature=0.3,
+    top_p=1.0,
+    frequency_penalty=0.0,
+    presence_penalty=0.0)
+    translated_text = response.choices[0].message.content.strip()
+    return translated_text
+
 
 ## Save the translated subset to a JSON file
 def save_translated_subset_to_json(translated_subset_df, file_path):
@@ -309,7 +331,9 @@ def save_translated_subset_to_json(translated_subset_df, file_path):
 def translate_text(text):
     if is_translatable(text):
         preprocessed_text = preprocess_text(text, remove_digits=False, to_lowercase=True, remove_stopwords=False, stemming=True, lemmatization=False, remove_code=True)
+        #print(f"Text Before Translation: {text}")
         translated_text = translate_text_openai(preprocessed_text)
+        #print(f"Text After Translation: {translated_text}")
         return translated_text
     else:
         return text
@@ -330,7 +354,7 @@ def test_translation(df, start=0,end=4, subset=True):
                                          'input': translated_input, 
                                          'output': translated_output})
     
-    save_translated_subset_to_json(translated_subset_df, './data/output/translated_Traditional_Chinese_GPT3_2023_newprompt3.json')
+    save_translated_subset_to_json(translated_subset_df, './data/output/translated_Traditional_Chinese_GPT_35_2023_newprompt3.json')
 
     # print("\nOriginal subset:")
     # print(subset_df)
@@ -350,9 +374,9 @@ def process_chunks_openai(chunks):
     return translated_texts
 
 
-def translate_text_openai_parallel(texts, chunk_size=10):
+def translate_text_openai_parallel(texts, chunk_size=100):
     chunked_texts = [texts[i:i + chunk_size] for i in range(0, len(texts), chunk_size)]
-
+    # print(f'Chunks Text before translate: {len(chunked_texts)}')
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(process_chunks_openai, chunk) for chunk in chunked_texts]
         results = [future.result() for future in concurrent.futures.as_completed(futures)]
@@ -378,218 +402,18 @@ def test_translation_update(df, start=0, end=4, subset=True):
                                          'input': translated_inputs,
                                          'output': translated_outputs})
 
-    save_translated_subset_to_json(translated_subset_df, './data/output/translated_Traditional_Chinese_GPT3_0k_10k.json')
+    save_translated_subset_to_json(translated_subset_df, './data/output/Vietnamese_Translation_Azure_GPT_35_51k76.json')
 
-# def main():
-#         setup_api(api="azure") # "azure"
-#         input_data = load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json")
-#         ## get the length of the dataframe
-#         # df_length = len(input_data)
-#         # # print the length
-#         ## Old Version 
-#         #test_translation(input_data, start=0,end=10000, subset=True)
-#         # print(f"The length of the dataframe is: {df_length}")
-#         test_translation_update(input_data, start=0,end=10000, subset=True)
-
-
-##****************************************************************
-### Section 2 Translation Using Open-Source Pretrained Model
-##****************************************************************
-
-## Libary for Language Translation Model 
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline, NllbTokenizer
-# Check if GPU is available
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-## Using NLLB open-source Model 
-source_langage={
-    "🇱🇷 English": "eng_Latn",
-    "🇻🇳 Vietnamese": "vie_Latn", 
-    "TraditionalChinese": "zho_Hant",
-    "🇨🇳 SimplifiedChinese": "zho_Hans",
-    "🇫🇷 French" : "fra_Latn",
-    "🇩🇪 German": "deu_Latn",
-    "🇲🇨 Indonesian": "ind_Latn",
-    "🇯🇵 Japanese": "jpn_Jpan",
-    "🇰🇷 Korean": "kor_Hang", 
-    "🇪🇸 Spanish": "spa_Latn", 
-    "🇹🇭 Thai": "tha_Thai",
-    "": "empty",
-}
-## Language Translation
-#samples_num=int(samples_num/2)
-weight_path="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/pretrained_weights/NLLB/"
-# Create the weight_path if it is not exist 
-if not os.path.exists(weight_path): 
-    os.makedirs(weight_path)
-# Initialize the tokenizer and model
-tokenizer = AutoTokenizer.from_pretrained("facebook/nllb-200-distilled-1.3B")
-model = AutoModelForSeq2SeqLM.from_pretrained("facebook/nllb-200-distilled-1.3B")
-
-# Check if GPU is available
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = model.to(device)
-# Translation function
-async def translate_text_nllb(text, source_language, target_language):
-    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=600)
-    inputs = {k: v.to(device) for k, v in inputs.items()}
-
-    translated_tokens = model.generate(
-        **inputs,
-        forced_bos_token_id=tokenizer.lang_code_to_id[target_language],
-        max_length=800,
-        early_stopping=True
-    )
-
-    translated_text = tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)[0]
-    return translated_text
-
-# def translate_text_nllb(text, source_language, target_language):
-#     tokenizer = AutoTokenizer.from_pretrained("facebook/nllb-200-distilled-1.3B",cache_dir=weight_path )#cache_dir=NLLB_path
-    
-#     #tokenizer = NllbTokenizer.from_pretrained("facebook/nllb-200-distilled-1.3B", cache_dir=weight_path)
-#     model = AutoModelForSeq2SeqLM.from_pretrained("facebook/nllb-200-distilled-1.3B", cache_dir=weight_path)
-   
-#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#     model=model.to(device)
-#     # # Check if GPU is available
-#     # Tokenize and encode the text
-#     inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=600)
-    
-#     # Move the input tokens to the GPU if available
-#     inputs = {k: v.to(device) for k, v in inputs.items()}
-
-#     # translator_prompt = pipeline('translation', model=model, tokenizer=tokenizer, src_lang=source_language, tgt_lang=target_language, max_length=800)
-#     # prompt = translator_prompt(text)[0]
-#     # translated_text = prompt['translation_text']
-
-#     # Generate the translation
-#     translated_tokens = model.generate(
-#         **inputs,
-#         forced_bos_token_id=tokenizer.lang_code_to_id[target_language],
-#         max_length=800,
-#         early_stopping=True
-#     )
-
-#     # Decode the translation
-#     translated_text = tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)[0]
-
-#     # del translator_prompt
-#     # del tokenizer
-#     # del model
-#     #torch.cuda.empty_cache()
-#     return translated_text
-
-def translate_dataframe_subset(text):
-    if is_translatable(text):
-        preprocessed_text = preprocess_text(text, remove_digits=False, to_lowercase=True, remove_stopwords=False, stemming=True, lemmatization=True, remove_code=True)
-        translated_text = translate_text_nllb(preprocessed_text, source_langage['🇱🇷 English'], source_langage['🇻🇳 Vietnamese'])
-        return translated_text
-    else:
-        return text
-
-def translate_and_save_to_json(dataset, output_file, start, end, subset=True):
-    translations = []
-
-    if subset:
-        #dataset = dataset.head(end)
-        dataset= dataset.iloc[start:end]
-
-    for index, data in dataset.iterrows():
-        instruction = data["instruction"]
-        input_text = data["input"]
-        output_text = data["output"]
-
-        translated_instruction = translate_dataframe_subset(instruction)
-        translated_input = translate_dataframe_subset(input_text)
-        translated_output = translate_dataframe_subset(output_text)
-
-        translations.append({
-            "instruction": translated_instruction,
-            "input": translated_input,
-            "output": translated_output
-        })
-
-    save_translated_subset_to_json(pd.DataFrame(translations), output_file)
-
-
-
-### Processing Text into Chunk of Data 
-def process_chunks_nllb(chunks):
-    translated_texts = []
-    for text in chunks:
-        if is_translatable(text):
-            preprocessed_text = preprocess_text(text, remove_digits=False, to_lowercase=True, remove_stopwords=False, stemming=True, lemmatization=True, remove_code=True)
-            translated_text = translate_text_nllb(preprocessed_text, source_langage['🇱🇷 English'], source_langage['🇻🇳 Vietnamese'])
-            translated_texts.append(translated_text)
-        else:
-            translated_texts.append(text)
-    return translated_texts
-
-def translate_text_nllb_parallel(texts, chunk_size=70):
-    
-    chunked_texts = [texts[i:i + chunk_size] for i in range(0, len(texts), chunk_size)]
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(process_chunks_nllb, chunk) for chunk in chunked_texts]
-        results = [future.result() for future in concurrent.futures.as_completed(futures)]
-
-    translated_texts = []
-    for result in results:
-        translated_texts.extend(result)
-
-    return translated_texts
-
-def translate_and_save_to_json_update(dataset, output_file, start, end, subset=True):
-    translations = []
-    if subset:
-        dataset = dataset.iloc[start:end]
-
-    translated_instructions = translate_text_nllb_parallel(dataset['instruction'].tolist())
-    translated_inputs = translate_text_nllb_parallel(dataset['input'].tolist())
-    translated_outputs = translate_text_nllb_parallel(dataset['output'].tolist())
-
-    for instruction, input_text, output_text in zip(translated_instructions, translated_inputs, translated_outputs):
-        translations.append({
-            "instruction": instruction,
-            "input": input_text,
-            "output": output_text
-        })
-
-    save_translated_subset_to_json(pd.DataFrame(translations), output_file)
-
-# def main():
-#     input_data = load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json")
-#     df_length = len(input_data)
-#     # # print the length
-#     print(f"The length of the dataframe is: {df_length}")
-#     translate_and_save_to_json_update(input_data, output_file="./data/output/NLLB_translations_Vietnamese_test.json", start=0, end=4,subset=True)
-
-# Main function
-async def main():
-    input_data = load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json")
-    df_length = len(input_data)
-    print(f"The length of the dataframe is: {df_length}")
-
-    # Translate in parallel
-    translated_texts = await asyncio.gather(
-        *[translate_text_nllb(preprocess_text(text), source_language['🇱🇷 English'], source_language['🇻🇳 Vietnamese']) for text in input_data['instruction']]
-    )
-
-    # Store the translations in a DataFrame
-    translations_df = pd.DataFrame({
-        "instruction": translated_texts,
-        "input": input_data["input"],
-        "output": input_data["output"]
-    })
-
-    # Save the translations to a JSON file
-    save_translated_subset_to_json(translations_df, output_file="./data/output/NLLB_translations_Vietnamese_test_1.json")
-
-# Run the asyncio event loop
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
-
+def main():
+        setup_api(api="azure") # "azure"
+        input_data = load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json")
+        ## get the length of the dataframe
+        # df_length = len(input_data)
+        # # print the length
+        ## Old Version 
+        #test_translation(input_data, start=0,end=10000, subset=True)
+        # print(f"The length of the dataframe is: {df_length}")
+        test_translation_update(input_data, start=0,end=51760, subset=True)
 
 if __name__ == "__main__":
     start_time = time.time()
