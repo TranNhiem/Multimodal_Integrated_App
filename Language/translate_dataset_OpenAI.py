@@ -11,6 +11,7 @@ This design including 2 Sections:
     + BLOOM - Opensource Multi-lingual Language Model
     + T5&FlanT5 - Google's Text-to-Text 
 '''
+
 import os
 import openai
 import json
@@ -22,6 +23,8 @@ import torch
 import string
 import requests
 import time 
+
+from ratelimit import limits, sleep_and_retry
 
 from concurrent.futures import ThreadPoolExecutor
 import concurrent
@@ -42,8 +45,9 @@ import nltk
 ##  Download Original English Dataset Version
 #url = "https://raw.githubusercontent.com/tatsu-lab/stanford_alpaca/main/alpaca_data.json"
 # url="https://raw.githubusercontent.com/gururise/AlpacaDataCleaned/main/alpaca_data_cleaned.json"
+# url="https://raw.githubusercontent.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM/main/data/alpaca_gpt4_data.json"
 # response = requests.get(url)
-# output_file = "./data/alpaca_52k_instruction_cleaned.json"
+# output_file = "./data/alpaca_52k_GPT4_instruction_cleaned.json"
 # if response.status_code == 200:
 #     with open(output_file, 'wb') as f:
 #         f.write(response.content)
@@ -63,7 +67,7 @@ API_VERSION = "2023-03-15-preview" #"2022-06-01-preview"#"2023-03-15-preview"
 API_KEY = os.getenv("OPENAI_API_KEY")
 MODEL = "gpt-35-turbo"#"gpt-3.5-turbo" #"gpt-35-turbo" for Azure API, OpenAI API "gpt-3.5-turbo"#"gpt-4", "text-davinci-003"
 
-TARGET_LANGUAGE = "Vietnamese language" #"Vietnamese language"
+TARGET_LANGUAGE = "Traditonal Chinese language" #"Vietnamese language"
 CHUNK_SIZE = 5
 OUTPUT_DIR = "./data/output/"
 
@@ -274,12 +278,28 @@ def is_translatable(text):
 ##-----------END  PREPROCESSING TEXT ------------------------
 # Delay between API calls to stay within rate limits
 def delay_between_requests():
-    time.sleep(2)  # Adjust the delay time as needed
+    time.sleep(7)  # Adjust the delay time as needed
 
 
 
+# Define the rate limit (requests per minute) and token limit
+## GPT3
+# RATE_LIMIT = 120  # Adjust the rate limit as per your model
+# TOKEN_LIMIT = 40000  # Adjust the token limit as per your model
+## ChatGPT
+RATE_LIMIT = 200
+TOKEN_LIMIT = 120000
+
+# ##GPT4
+# RATE_LIMIT = 18
+# TOKEN_LIMIT = 600000
+
+
+# Decorator to enforce rate limit
+@sleep_and_retry
+@limits(calls=RATE_LIMIT, period=60)
 def translate_text_openai(text):
-    delay_between_requests()  # Add delay before each API call
+    #delay_between_requests()  # Add delay before each API call
     if not text.strip():
         return ""
     # if ' ' in text:
@@ -402,7 +422,7 @@ def test_translation_update(df, start=0, end=4, subset=True):
                                          'input': translated_inputs,
                                          'output': translated_outputs})
 
-    save_translated_subset_to_json(translated_subset_df, './data/output/Vietnamese_Translation_Azure_GPT_35_51k76.json')
+    save_translated_subset_to_json(translated_subset_df, './data/output/Tranditional_Chinese_Translation_Azure_GPT_35_10_20K.json')
 
 def main():
         setup_api(api="azure") # "azure"
@@ -413,7 +433,7 @@ def main():
         ## Old Version 
         #test_translation(input_data, start=0,end=10000, subset=True)
         # print(f"The length of the dataframe is: {df_length}")
-        test_translation_update(input_data, start=0,end=51760, subset=True)
+        test_translation_update(input_data, start=10000,end=20000, subset=True)
 
 if __name__ == "__main__":
     start_time = time.time()

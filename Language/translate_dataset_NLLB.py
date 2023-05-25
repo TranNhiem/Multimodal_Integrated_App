@@ -235,7 +235,6 @@ def save_translated_subset_to_json(translated_subset_df, file_path):
 # tokenizer = AutoTokenizer.from_pretrained("facebook/nllb-200-distilled-1.3B", cache_dir=weight_path)
 # model = AutoModelForSeq2SeqLM.from_pretrained("facebook/nllb-200-distilled-1.3B",cache_dir=weight_path)
 # model = model.to(device)
-
 source_language={
     "🇱🇷 English": "eng_Latn",
     "🇻🇳 Vietnamese": "vie_Latn", 
@@ -451,7 +450,6 @@ async def main_bloomz(start, end, subset):
 
     # Save the translations to a JSON file
     save_translated_subset_to_json(translations_df, file_path="./data/output/BLOOMZ_translations_Vietnamese.json")
-
 
 
 # Run the asyncio event loop

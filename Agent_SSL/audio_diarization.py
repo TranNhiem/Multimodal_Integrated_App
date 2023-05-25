@@ -8,128 +8,99 @@ Reference:
 https://lablab.ai/t/whisper-transcription-and-speaker-identification
 '''
 
+from Youtube_download import  download_audio
 
-import os
-import json
-import subprocess
-from googleapiclient.discovery import build
+## Define Video want to download
+video_url="https://www.youtube.com/watch?v=6OozhhI6U4g&t=1527s" #'https://www.youtube.com/watch?v=sitHS6UDMJc'
+save_path="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/Audio"
+format='mp3' # mp3, wav, ogg, m4a, wma, flv, webm, 3gp
+## download audio from video url
 
-# def get_channel_videos(api_key, channel_url, max_results=10):
-#     channel_id = channel_url.split('/')[-1]
-#     youtube = build('youtube', 'v3', developerKey=api_key)
-#     videos = []
-#     next_page_token = None
+download_audio(video_url, save_path, format)
 
-#     while True:
-#         request = youtube.search().list(
-#             part='id',
-#             channelId=channel_id,
-#             maxResults=50,
-#             order='date',
-#             pageToken=next_page_token
-#         )
-#         response = request.execute()
-#         videos += [item['id']['videoId'] for item in response.get('items', []) if 'videoId' in item['id']]
+##-------------------Audio Preprocessing--------------------------
+from pydub.utils import mediainfo
 
-#         next_page_token = response.get('nextPageToken')
+# file_info = mediainfo("/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/Audio/OpenAssistantInferenceBackendDevelopmentHandsOnCoding.mp3")
+# print(file_info["format_name"])
 
-#         if not next_page_token or len(videos) >= max_results:
-#             break
+# from pydub import AudioSegment
 
-#     return videos[:max_results]
+# audio = AudioSegment.from_file("/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/Audio/OpenAssistantInferenceBackendDevelopmentHandsOnCoding.mp3", format="mp4")
+# audio.export("output.wav", format="wav")
 
 
-def get_channel_videos(api_key, channel_url, max_results=10):
-    channel_id = channel_url.split('/')[-1]
-    youtube = build('youtube', 'v3', developerKey=api_key)
-    response = youtube.search().list(
-        part='id',
-        channelId=channel_id,
-        order='date',
-        maxResults=max_results
-    ).execute()
-    video_ids = []
-    for item in response.get('items', []):
-        video = item.get('id', {}).get('videoId')
-        if video:
-            video_ids.append(video)
-    return video_ids
+##-------------------Segment the Audio--------------------------
+from pydub import AudioSegment
+## Get Audio Path 
+audio_path=None # Update path_join(save_path, title + "." + format)
+spacermilli = 2000
+spacer = AudioSegment.silent(duration=spacermilli)
+# audio = AudioSegment.from_wav("./output.wav") #lecun1.wav
+# audio = spacer.append(audio, crossfade=0)
+# audio.export('audio.wav', format='wav')
 
-def download_audio_from_youtube(video_url, save_path):
-    video_id = video_url.split('=')[1]
-    file_path = os.path.join(save_path, f"{video_id}.mp3")
-    print(f"File Path: {file_path}")
+##-------------------Pyannote's Diarization --------------------------
+'''
+pyannote.audio also comes with pretrained models and pipelines covering a wide range of domains for voice activity detection, 
+speaker segmentation, overlapped speech detection
 
-    # Check if the file already exists
-    if os.path.exists(file_path):
-        print(f"Skipping {video_id} - File already exists")
-        return
+'''
+from pyannote.audio import Model
 
-    try:
-        # Download the audio using youtube-dl
-        command = f"youtube-dl --verbose -x --audio-format mp3 --audio-quality 0 -o \"{file_path}\" {video_url}"
+from pyannote.audio import Pipeline
+weight_path="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/pretrained_weights/pyannote/"
+if not os.path.exists(weight_path): 
+    os.makedirs(weight_path)
+pipeline = Pipeline.from_pretrained('pyannote/speaker-diarization', use_auth_token=True)
 
-        subprocess.call(command, shell=True)
-        print(f"Downloaded {video_id} - Saved at {file_path}")
-    except Exception as e:
-        print(f"Error downloading {video_id}: {str(e)}")
+DEMO_FILE = {'uri': 'blabla', 'audio': 'audio.wav'}
+dz = pipeline(DEMO_FILE)  
 
-# Example usage:
-api_key = "AIzaSyCE3ooWjZX4CxhfJAmKrzc0k3sCiG9AQYE"
-channel_url = "https://www.youtube.com/@bigthink"
-video_url = None
-save_path = "/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/Audio/"
-if not os.path.exists(save_path):
-    os.makedirs(save_path)
+with open("diarization.txt", "w") as text_file:
+    text_file.write(str(dz))
 
-max_results = 4
+print(*list(dz.itertracks(yield_label = True))[:10], sep="\n")
 
-video_ids = get_channel_videos(api_key, channel_url, max_results)
+##-------------------Speaker Embedding--------------------------
+def millisec(timeStr):
+  spl = timeStr.split(":")
+  s = (int)((int(spl[0]) * 60 * 60 + int(spl[1]) * 60 + float(spl[2]) )* 1000)
+  return s
 
-for video_id in video_ids:
-    video_url = f"https://www.youtube.com/watch?v={video_id}"
-    download_audio_from_youtube(video_url, save_path)
+import re
+dzs = open('diarization.txt').read().splitlines()
 
-if video_url:
-    download_audio_from_youtube(video_url, save_path)
+groups = []
+g = []
+lastend = 0
+for d in dzs:   
+  if g and (g[0].split()[-1] != d.split()[-1]):      #same speaker
+    groups.append(g)
+    g = []
+  
+  g.append(d)
+  
+  end = re.findall('[0-9]+:[0-9]+:[0-9]+\.[0-9]+', string=d)[1]
+  end = millisec(end)
+  if (lastend > end):       #segment engulfed by a previous segment
+    groups.append(g)
+    g = [] 
+  else:
+    lastend = end
+if g:
+  groups.append(g)
 
-##-----------------Download Audio from Spotify ------------------------------
-# import spotipy
-# from spotipy.oauth2 import SpotifyClientCredentials
-# import os
-# import urllib.request
+print(*groups, sep='\n')
 
-# # Spotify API credentials
-# client_id = 'YOUR_CLIENT_ID'
-# client_secret = 'YOUR_CLIENT_SECRET'
+# audio = AudioSegment.from_wav("audio.wav")
+# gidx = -1
 
-# # Playlist URI (e.g., 'spotify:playlist:PLAYLIST_ID')
-# playlist_uri = 'SPOTIFY_PLAYLIST_URI'
-
-# # Output directory to save audio files
-# output_directory = '/path/to/output/directory'
-
-# # Authenticate with Spotify API
-# client_credentials_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
-# sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
-
-# # Get playlist tracks
-# results = sp.playlist_items(playlist_uri)
-# tracks = results['items']
-
-# # Download audio files
-# for track in tracks:
-#     track_name = track['track']['name']
-#     track_artist = track['track']['artists'][0]['name']
-#     track_preview_url = track['track']['preview_url']
-
-#     if track_preview_url:
-#         # Create output filename
-#         filename = f'{track_artist} - {track_name}.mp3'
-#         file_path = os.path.join(output_directory, filename)
-
-#         # Download audio file
-#         urllib.request.urlretrieve(track_preview_url, file_path)
-#         print(f'Downloaded: {filename}')
-#     else:
-#         print(f'Skipped: {track_artist} - {track_name} (No preview available)')
+# for g in groups:
+#   start = re.findall('[0-9]+:[0-9]+:[0-9]+\.[0-9]+', string=g[0])[0]
+#   end = re.findall('[0-9]+:[0-9]+:[0-9]+\.[0-9]+', string=g[-1])[1]
+#   start = millisec(start) #- spacermilli
+#   end = millisec(end)  #- spacermilli
+#   print(start, end)
+#   gidx += 1
+#   audio[start:end].export(str(gidx) + '.wav', format='wav')
