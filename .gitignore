@@ -24,3 +24,7 @@ __pycache__/
 # *.json
 *.pkl
 *.xlsx
+*.html
+*.Python
+*.pth 
+*.pt 
