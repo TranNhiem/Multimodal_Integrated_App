@@ -30,6 +30,10 @@ import openai
 import gradio as gr
 ## Setting OpenAI API 
 
+
+##-------------------------------------------------
+## Using OpenAI API and Langchain 
+##-------------------------------------------------
 API_TYPE = "azure"
 API_BASE = "https://sslgroupservice.openai.azure.com/"
 API_VERSION = "2023-03-15-preview" #"2022-06-01-preview"#"2023-03-15-preview"
@@ -51,9 +55,8 @@ def setup_api(api="azure"):
 setup_api(api="openAI") #azure
 
 
-##-------------------------------------------------
-## Langchain Section 
-##-------------------------------------------------
+
+## -------------------Setting Langchain Section =-------------------
 ## Setting LangChain Summary&BufferMemory 
 '''
 2 Advanced Setting Memory 
@@ -144,8 +147,10 @@ with gr.Blocks() as demo:
 
     message.submit(respond, inputs=[message, chatbot, temperature, top_p, max_output_tokens], outputs=[message, chatbot], queue=False, )
     
-demo.queue()
-demo.launch()
+# demo.queue()
+# demo.launch()
+
+
 
 ## ----------------------------For Testing The system Memory ----------------------------
 
@@ -156,3 +161,57 @@ demo.launch()
 # print(conversation_with_summary.predict(input=" I also want to create the lightweight of this model enable to run on mobile devices"))
 
 # print(conversation_with_summary.predict(input=" can you write an example python snipe code for this"))
+
+
+
+##-----------------------------------------------------------
+## Using Huggingface API and Langchain
+##-----------------------------------------------------------
+
+from transformers import  AutoModelForCausalLM, AutoTokenizer, GenerationConfig, pipeline
+from langchain.llms import HuggingFacePipeline
+from langchain import LLMChain
+
+weight_path="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/pretrained_weights/BLOOMZ/"
+
+tokenizer = AutoTokenizer.from_pretrained("bigscience/bloomz-3b", cache_dir=weight_path)
+base_model = AutoModelForCausalLM.from_pretrained(
+    "bigscience/bloomz-3b",
+    # load_in_8bit=True,
+    device_map='auto',
+    cache_dir=weight_path,)
+
+## Add the model the base Configurations to manipulate the Model Decoding Method 
+local_llm = HuggingFacePipeline(pipeline=pipe)
+
+template = 
+
+"""
+The conversation between a human input and an AI assistant follows a specific pattern. The human provides an instruction or request that describes a task or action they would like the AI assistant to perform. The AI assistant then generates a response that appropriately completes the request or fulfills the given instruction.
+
+Instruction: {instruction}
+Output Response:
+
+"""
+
+prompt_template = PromptTemplate(template=template, input_variables=["instruction"])
+
+
+#memory= ConversationSummaryBufferMemory(llm=OpenAI(), max_token_limit=40)
+memory= ConversationSummaryBufferMemory(llm=local_llm, max_token_limit=40)
+
+conversation_with_summary = ConversationChain(
+            llm=local_llm, 
+            memory=memory, 
+            verbose=True, 
+            prompt= prompt_template, 
+        )
+
+print(conversation_with_summary.predict(input="Hi there! I want to ask you a question about how to write a simple transformer model in python for computer vision"))
+
+print(conversation_with_summary.predict(input=" This Model i will use for image classification tasks"))
+
+print(conversation_with_summary.predict(input=" I also want to create the lightweight of this model enable to run on mobile devices"))
+
+print(conversation_with_summary.predict(input=" can you write an example python snipe code for this"))
+
