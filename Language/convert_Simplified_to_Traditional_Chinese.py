@@ -33,7 +33,6 @@ def load_input_data(INPUT_TASKS_PATH):
     print(f"Complete Loaded {len(final_df)} JSON objects.")
     return final_df
 
-
 input_data = load_input_data(file_path)
 
 # Convert the JSON data in parallel
@@ -71,4 +70,4 @@ def convert_text(df, start, end, subset=True, output_file="traditional_chinese.j
 start = 0
 end = 10
 output_file = "converted_Traditional_chinese_Belle_open_source_0.5M.json"
-converted_data = convert_text(input_data, start, end,subset=False, output_file=output_file)
+converted_data = convert_text(input_data, start, end, subset=False, output_file=output_file)
