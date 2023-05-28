@@ -65,134 +65,89 @@ from langchain.chains import ConversationChain
 from langchain import OpenAI
 from langchain.prompts.prompt import PromptTemplate
 
+
+# Setting Prompt Template
+#The following is a friendly conversation between a human and an AI. The AI is talkative and .
 template = """
-The following is a conversation with an AI assistant. The assistant is helpful, creative, clever, and very friendly.
-The following is a friendly conversation between a human and an AI. The AI is talkative and provides lots of specific details from its context. 
+The following is a conversation between a human and AI assistant. The AI assistant is helpful, creative, clever, and very friendly, provides lots of specific details from its context. 
 If the AI does not know the answer to a question, it truthfully says it does not know.
- The AI ONLY uses information contained in the "Relevant Information" section and does not hallucinate.
-
-
+The AI ONLY uses information contained in the "Relevant Information" section and does not hallucinate.
 
 Relevant Information:
-
 {history}
 
 Conversation:
 Human: {input}
-AI:"""
+AI:
+
+"""
 prompt = PromptTemplate(
     input_variables=["history", "input"], template=template
 )
 
-
-llm = OpenAI(model_name="gpt-3.5-turbo", # 'text-davinci-003'
-             temperature=0.3, 
-             max_tokens = 256)
-
-
-# max_token_limit=40 - token limits needs transformers installed
-memory= ConversationSummaryBufferMemory(llm=OpenAI(), max_token_limit=40)
-
-conversation_with_summary = ConversationChain(
-    llm=llm, 
-    memory=memory, 
-    verbose=True, 
-    prompt= prompt, 
-)
-
-def chatgpt_clone(input, history):
-    history = history or []
-    s = list(sum(history, ()))
-    s.append(input)
-    inp = ' '.join(s)
-    print("This is check input:", inp)
-    output = conversation_with_summary.predict(input=inp)
-    history.append((input, output))
-    return history, history
-
-
-block = gr.Blocks()
-
-
-# with gr.Blocks() as demo:
-#     gr.Markdown("""<h1><center>Assistant via SIF </center></h1>""")
-#     chatbot = gr.Chatbot(label="Assistant")
-#     message = gr.Textbox(show_label=False, placeholder="Enter your prompt and press enter", visible=True).style(container=False)
-#     state = gr.State()
-    
-#     def clear_textbox(inputs, outputs):
-#         inputs["message"] = ""  # Clear the message input
-        
-#     message.submit(chatgpt_clone, inputs=[message, state], outputs=[chatbot, state], queue=False, on_submit=clear_textbox)
-    
-
-#     ## For Setting Hyperparameter 
-#     with gr.Accordion("Parameters", open=False, visible=True) as parameter_row:
-#         temperature = gr.Slider(
-#             minimum=0.0,
-#             maximum=1.0,
-#             value=0.7,
-#             step=0.1,
-#             interactive=True,
-#             label="Temperature",
-#         )
-#         top_p = gr.Slider(
-#             minimum=0.0,
-#             maximum=1.0,
-#             value=1.0,
-#             step=0.1,
-#             interactive=True,
-#             label="Top P",
-#         )
-#         max_output_tokens = gr.Slider(
-#             minimum=16,
-#             maximum=1024,
-#             value=512,
-#             step=64,
-#             interactive=True,
-#             label="Max output tokens",
-#         )
-
-
-# demo.queue().launch(debug = False)
-
-
 with gr.Blocks() as demo:
     gr.Markdown("""<h1><center>Assistant via SIF </center></h1>""")
-    chatbot = gr.Chatbot(label="Assistant")
-    message = gr.Textbox(show_label=False, placeholder="Enter your prompt and press enter", visible=True).style(container=False)
+    chatbot = gr.Chatbot(label="Assistant").style(height=500)
+    
+    with gr.Row():
+        message = gr.Textbox(show_label=False, placeholder="Enter your prompt and press enter", visible=True)
     state = gr.State()
+    # max_token_limit=40 - token limits needs transformers installed
+    memory= ConversationSummaryBufferMemory(llm=OpenAI(), max_token_limit=40)
 
-    def clear_textbox(message, state):
-        message.update("")  # Clear the message input
+    def respond(message, chat_history, temperature=0.7, top_p=1.0, max_output_tokens=512):
         
-    def submit_callback(inputs, outputs):
-        clear_textbox(inputs["message"], state)
-        return chatgpt_clone(inputs, outputs)
-    
-    message.submit = submit_callback
-    
-demo.queue().launch(debug=True)
+        llm = OpenAI(model_name="gpt-3.5-turbo", # 'text-davinci-003'
+             temperature=temperature, 
+             top_p=top_p,
+             max_tokens = max_output_tokens)
+        
+        conversation_with_summary = ConversationChain(
+            llm=llm, 
+            memory=memory, 
+            verbose=True, 
+            prompt= prompt, 
+        )
+        bot_message = conversation_with_summary.predict(input=message)
+        message= "👤: "+ message
+        bot_message= "😃: "+ bot_message
+        chat_history.append((message, bot_message))
+        #time.sleep(1)
+        return "", chat_history
+     
+    ## For Setting Hyperparameter 
+    with gr.Accordion("Parameters", open=False, visible=True) as parameter_row:
+        temperature = gr.Slider(
+            minimum=0.0,
+            maximum=1.0,
+            value=0.7,
+            step=0.1,
+            interactive=True,
+            label="Temperature",
+        )
+        top_p = gr.Slider(
+            minimum=0.0,
+            maximum=1.0,
+            value=1.0,
+            step=0.1,
+            interactive=True,
+            label="Top P",
+        )
+        max_output_tokens = gr.Slider(
+            minimum=16,
+            maximum=1024,
+            value=512,
+            step=64,
+            interactive=True,
+            label="Max output tokens",
+        )
 
-
-# with gr.Blocks() as demo:
+    message.submit(respond, inputs=[message, chatbot, temperature, top_p, max_output_tokens], outputs=[message, chatbot], queue=False, )
     
-   
-#     chatbot = gr.Chatbot(value=[], elem_id="chatbot").style(height=650)
-#     with gr.Row():
-#         with gr.Column(scale=0.90):
-#             txt = gr.Textbox(
-#                 show_label=False,
-#                 placeholder="Enter your prompt and press enter",
-#             ).style(container=False) 
-#         with gr.Column(scale=0.10):
-#             cost_view = gr.Textbox(label='usage in $',value=0)
+demo.queue()
+demo.launch()
 
-#     txt.submit(add_text, [chatbot, txt], [chatbot, txt], queue=False).then(
-#             generate_response, inputs =[chatbot,],outputs = chatbot,).then(
-#             calc_cost, outputs=cost_view)
-            
-# demo.queue()
+## ----------------------------For Testing The system Memory ----------------------------
 
 # print(conversation_with_summary.predict(input="Hi there! I want to ask you a question about how to write a simple transformer model in python for computer vision"))
 
