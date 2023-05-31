@@ -122,19 +122,18 @@ def train(
     template_json_path= "/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/data_structure_template/alpaca.json",
     # training hyperparams
     num_gpus=8,
-    batch_size: int = 123,
-    micro_batch_size: int = 3,
-    num_epochs: int = 30,
+    batch_size: int = 256,
+    micro_batch_size: int = 8,
+    num_epochs: int = 50,
     learning_rate: float = 3e-4,
     cutoff_len: int = 400,
     val_set_size: int = 2000,
     # lora hyperparams
-    lora_r: int = 8,
-    lora_alpha: int = 16,
+    lora_r: int = 16,
+    lora_alpha: int = 32,
     lora_dropout: float = 0.05,
     ## Configure Optimize HARDWARE memory 
-    deepspeed_configure="", 
-    optimizer_type="", 
+    deepspeed_configure=""
 
     ## Depend on Different Model Architecutre setting this different
     lora_target_modules: List[str] = TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING["bloom"],

@@ -122,8 +122,8 @@ def train(
     template_json_path= "/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/data_structure_template/alpaca.json",
     # training hyperparams
     num_gpus=8,
-    batch_size: int = 123,
-    micro_batch_size: int = 3,
+    batch_size: int = 128,
+    micro_batch_size: int = 4,
     num_epochs: int = 30,
     learning_rate: float = 3e-4,
     cutoff_len: int = 400,

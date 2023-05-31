@@ -31,7 +31,6 @@ from concurrent.futures import ThreadPoolExecutor
 import concurrent
 ## Preprocessing Text
 import re
-import backoff 
 # from nltk.corpus import stopwords
 # from nltk.stem import PorterStemmer, WordNetLemmatizer
 # from nltk.tokenize import word_tokenize
@@ -177,13 +176,14 @@ def delay_between_requests():
     time.sleep(7)  # Adjust the delay time as needed
 
 
+
 # Define a retry decorator with exponential backoff
 def retry_with_exponential_backoff(
     func,
-    initial_delay: float = 10,
-    exponential_base: float = 20,
+    initial_delay: float = 5,
+    exponential_base: float = 2,
     jitter: bool = True,
-    max_retries: int = 20,
+    max_retries: int = 10,
     errors: tuple = (openai.error.RateLimitError,),
 ):
     def wrapper(*args, **kwargs):
@@ -214,41 +214,15 @@ def retry_with_exponential_backoff(
 RATE_LIMIT = 120
 TOKEN_LIMIT = 120000
 
-# ##GPT4
-# RATE_LIMIT = 18
-# TOKEN_LIMIT = 600000
 
 # Decorator to enforce rate limit
 # @sleep_and_retry
 # @limits(calls=RATE_LIMIT, period=60)
-#@retry_with_exponential_backoff
-@backoff.on_exception(backoff.expo, (openai.error.RateLimitError, openai.error.Timeout, openai.error.InvalidRequestError), max_tries=10, max_time=60)
 def translate_text_openai(text):
     #delay_between_requests()  # Add delay before each API call
     if not text.strip():
         return ""
-    # if ' ' in text:
-    #     prompt= f'Please provide the {TARGET_LANGUAGE} translation for these sentences: {text}'
-    # else:
-    #     prompt= f'Please provide the {TARGET_LANGUAGE} translation for the following word: {text}'
-    #prompt = f"Please translate the following English text to {TARGET_LANGUAGE} : {text}"
-    # prompt= f" English text: {text} translation into Traditional Chinese language: " # Not greate result
-    # prompt= f"Translate the following English text to Traditional language: {text}"
-    # prompt= f'Please provide the {TARGET_LANGUAGE} translation for these sentences: {text}'
-    # prompt = f'Translate the following English text into {TARGET_LANGUAGE}: "{text}"'
-    
-    # response = openai.Completion.create(
-    #     engine=MODEL, 
-    #     prompt=prompt, 
-    #     max_tokens=800, 
-    #     stop=None, 
-    #     temperature=0.01,
-    #     top_p=1.0,
-    #     frequency_penalty=0.0,
-    #     presence_penalty=0.0
-    # )
-    # translated_text = response.choices[0].text.strip()
-    # return translated_text.split('\n')[-1].strip()
+  
     response = openai.ChatCompletion.create(
     engine=MODEL,
     messages=[
@@ -261,32 +235,8 @@ def translate_text_openai(text):
     frequency_penalty=0.0,
     presence_penalty=0.0)
     translated_text = response.choices[0].message.content.strip()
-    
     return translated_text
 
-
-def translate_text_openai_with_backoff(text):
-    retries = 0
-    max_retries = 5
-    base_delay = 20  # Initial delay in seconds
-    max_delay = 70  # Maximum delay in seconds
-
-    while retries < max_retries:
-        try:
-            return translate_text_openai(text)
-        except openai.error.RateLimitError:
-            delay = random.uniform(0, min(max_delay, base_delay * math.pow(2, retries)))
-            time.sleep(delay)
-            retries += 1
-        except openai.error.Timeout as e:
-            # Handle timeout error
-            print(f"Request timed out: {e}")
-            delay = random.uniform(0, min(max_delay, base_delay * math.pow(2, retries)))
-            time.sleep(delay)
-            retries += 1
-
-    # If all retries are exhausted, raise an error
-    raise Exception("Rate limit exceeded. Retry limit reached.")
 
 ## Save the translated subset to a JSON file
 def save_translated_subset_to_json(translated_subset_df, file_path):
@@ -296,8 +246,7 @@ def save_translated_subset_to_json(translated_subset_df, file_path):
     with open(file_path, 'w', encoding='utf-8') as outfile:
         json.dump(translated_subset_dict, outfile, ensure_ascii=False)
      # Translate a single text string
-
-#@retry_with_exponential_backoff
+@retry_with_exponential_backoff
 def process_chunks_openai(chunks):
     translated_texts = []
     for text in chunks:
@@ -323,13 +272,6 @@ def translate_text_openai_parallel(texts, chunk_size=50):
 
     return translated_texts
 
-def translate_text_with_error_handling(text):
-    try:
-        return translate_text_openai(text)
-    except openai.error.InvalidRequestError:
-        print(f"Skipping data due to content filtering: {text}")
-        return None
-
 # Update the test_translation function to use translate_text_openai_parallel
 def test_translation_update(df, start=0, end=4, subset=True):
     if subset:
@@ -337,166 +279,61 @@ def test_translation_update(df, start=0, end=4, subset=True):
     else:
         subset_df = df
 
-    # # translated_instructions = []
-    # # translated_inputs = []
-    # # translated_outputs = []
-   
-   
-    # try:
-    #     translated_instructions = translate_text_openai_parallel(subset_df['instruction'].tolist())
-    #     translated_inputs = translate_text_openai_parallel(subset_df['input'].tolist())
-    #     translated_outputs = translate_text_openai_parallel(subset_df['output'].tolist())
-    # # translated_instructions.extend(translate_text_openai_parallel(subset_df['instruction'].tolist()))
-    # # translated_inputs.extend(translate_text_openai_parallel(subset_df['input'].tolist()))
-    # # translated_outputs.extend(translate_text_openai_parallel(subset_df['output'].tolist()))
-    # except openai.error.InvalidRequestError:
-    #     print("Skipping data due to content filtering.")
-    
-    # translated_subset_df = pd.DataFrame({
-    # 'instruction': translated_instructions,
-    # 'input': translated_inputs,
-    # 'output': translated_outputs
-    # })
+    # translated_instructions = []
+    # translated_inputs = []
+    # translated_outputs = []
+    try: 
 
-    # save_translated_subset_to_json(
-    #     translated_subset_df,
-    #     f'./data/output/Vietnamese_Translation_Azure_GPT_35_{start}_{end}_new.json'
-    # )
-
-
-    
-    # except Exception as e:
-    #     ##Raise the exception again to halt the program
-    #     raise e
-
-    translated_instructions = []
-    translated_inputs = []
-    translated_outputs = []
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
-        for _, row in subset_df.iterrows():
-            instruction = row['instruction']
-            input_text = row['input']
-            output_text = row['output']
-            futures.append(executor.submit(translate_text_with_error_handling, instruction))
-            futures.append(executor.submit(translate_text_with_error_handling, input_text))
-            futures.append(executor.submit(translate_text_with_error_handling, output_text))
-
-        for future in concurrent.futures.as_completed(futures):
-            translated_text = future.result()
-            if translated_text is not None:
-                if len(translated_instructions) < len(subset_df):
-                    translated_instructions.append(translated_text)
-                elif len(translated_inputs) < len(subset_df):
-                    translated_inputs.append(translated_text)
-                elif len(translated_outputs) < len(subset_df):
-                    translated_outputs.append(translated_text)
-
-    translated_subset_df = pd.DataFrame({
+        translated_instructions = translate_text_openai_parallel(subset_df['instruction'].tolist())
+        translated_inputs = translate_text_openai_parallel(subset_df['input'].tolist())
+        translated_outputs = translate_text_openai_parallel(subset_df['output'].tolist())
+        # translated_instructions.extend(translate_text_openai_parallel(subset_df['instruction'].tolist()))
+        # translated_inputs.extend(translate_text_openai_parallel(subset_df['input'].tolist()))
+        # translated_outputs.extend(translate_text_openai_parallel(subset_df['output'].tolist()))
+        
+        translated_subset_df = pd.DataFrame({
         'instruction': translated_instructions,
         'input': translated_inputs,
         'output': translated_outputs
-    })
+        })
 
-    save_translated_subset_to_json(
-        translated_subset_df,
-        f'./data/output/Vietnamese_Translation_Azure_GPT_35_{start}_{end}.json'
-    )
+        save_translated_subset_to_json(
+            translated_subset_df,
+            f'./data/output/Vietnamese_Translation_Azure_GPT_35_{start}_{end}.json'
+        )
+    except Exception as e:
+
+        raise e
+
+   
 
     #save_translated_subset_to_json(translated_subset_df, './data/output/Vietnamese_Translation_Azure_GPT_35_0_10K.json')
 
 def main():
         setup_api(api="azure") # "azure"
         input_data = load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json")
-        ## get the length of the dataframe
-        # df_length = len(input_data)
-        # # print the length
-        ## Old Version 
-        #test_translation(input_data, start=0,end=10000, subset=True)
-        #print(f"The length of the dataframe is: {df_length}")
-        # test_translation_update(input_data, start=0,end=10000, subset=True)
-        ##--------------------Another Tried via Saving Automatically --------------------------
-        input_data= input_data.iloc[0:20]
-        # start = 0 ## Change this start
-        # end = 10000 ## 10000
-        # while start < end:
-        #     try:
-        #         test_translation_update(input_data, start=start, end=end, subset=True)
-        #     except Exception as e:
-        #         print(f"Error occurred: {str(e)}")
-        #         # Update the start position to resume from the next subset
-        #         start = end
-        #         # Update the end position for the next subset
-        #         end = min(end + 1000, len(input_data))
-        #     else:
-        #         # If no exception occurred, update the start and end positions for the next subset
-        #         start = end
-        #         end = min(end + 1000, len(input_data))
-
-
+   
         # Define the subset size (e.g. 1000)
-        subset_size = 2
+        subset_size = 1000
         
         # Initialize start position
         start = 0
-        end=10
-        test_translation_update(input_data[start:end], start=start, end=end, subset=True)
         
-        # while start < len(input_data):
-        #     end = min(start + subset_size, len(input_data))
-        #     try:
-        #         test_translation_update(input_data[start:end], start=start, end=end, subset=True)
-        #     except Exception as e:
-        #         print(f"Error occurred: {str(e)}")
-        #         # Update the start position to resume from the next subset
-        #         start = end
-        #         # Update the end position for the next subset
-        #         end = min(end + subset_size, len(input_data))
-        #     else:
-        #         # If no exception occurred, update the start and end positions for the next subset
-        #         start = end
+        while start < len(input_data):
+            end = min(start + subset_size, len(input_data))
+            try:
+                test_translation_update(input_data[start:end], start=start, end=end, subset=True)
+            except Exception as e:
+                print(f"Error occurred: {str(e)}")
+                # Update the start position to resume from the next subset
+                start = end
+                # Update the end position for the next subset
+                end = min(end + subset_size, len(input_data))
+            else:
+                # If no exception occurred, update the start and end positions for the next subset
+                start = end
         
-        ##--------------------Another Tried via Delay time --------------------------
-
-        # # Split input data into smaller batches for translation
-        # start=10000
-        # end=20000
-        # input_data = input_data.iloc[start:end]
-        # # Split input data into smaller batches for translation
-        # batch_size = 10
-        # num_batches = (len(input_data) // batch_size) + 1
-        # translated_instructions = []
-        # translated_inputs = []
-        # translated_outputs = []
-        # for i in range(num_batches):
-        #     start_idx = i * batch_size
-        #     end_idx = (i + 1) * batch_size
-        #     batch_instruction = input_data.iloc[start_idx:end_idx]['instruction'].tolist()
-        #     batch_input = input_data.iloc[start_idx:end_idx]['input'].tolist()
-        #     batch_output = input_data.iloc[start_idx:end_idx]['output'].tolist()
-
-        #     # Translate batches of instructions, inputs, and outputs in parallel
-        #     translated_batch_instructions = translate_text_openai_parallel(batch_instruction)
-        #     translated_batch_inputs = translate_text_openai_parallel(batch_input)
-        #     translated_batch_outputs = translate_text_openai_parallel(batch_output)
-
-        #     translated_instructions.extend(translated_batch_instructions)
-        #     translated_inputs.extend(translated_batch_inputs)
-        #     translated_outputs.extend(translated_batch_outputs)
-
-        #     # Add delay between batches to stay within rate limits
-        #     time.sleep(4)
-
-        #     # Create a new DataFrame with translated data
-        # translated_df = pd.DataFrame({
-        #     'instruction': translated_instructions,
-        #     'input': translated_inputs,
-        #     'output': translated_outputs
-        # })
-
-        # # Save the translated subset to a JSON file
-        # save_translated_subset_to_json(translated_df, "'./data/output/Vietnamese_Translation_Azure_GPT_35_10_20K.json'") 
-
+     
 if __name__ == "__main__":
     start_time = time.time()
     main()

@@ -116,25 +116,22 @@ def train(
     # model/data params
     base_model: str = "bigscience/bloomz-1b7", #"facebook/opt-350m",  # the only required argument
     cache_dir: str ="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/pretrained_weights/BLOOMZ/", #"/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/pretrained_weights/OPT/",
-    # data_path:  str="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/Instruction_finetune_dataset/Alpaca/translated_tasks_de_deepl_4k.json",
-    data_path: str = "/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/Instruction_finetune_dataset/converted_Traditional_chinese_Belle_open_source_0_5M.json", #"/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json",
+    data_path:  str="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/Instruction_finetune_dataset/Alpaca/translated_tasks_de_deepl_4k.json",
+    # data_path: str = "/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/Instruction_finetune_dataset/converted_Traditional_chinese_Belle_open_source_0_5M.json", #"/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json",
     output_dir: str = "./lora-alpaca_BlOOMZ_1b7m_0_5M_Traditional_CN/",
     template_json_path= "/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/data_structure_template/alpaca.json",
     # training hyperparams
     num_gpus=8,
-    batch_size: int = 123,
-    micro_batch_size: int = 3,
-    num_epochs: int = 30,
+    batch_size: int = 256,
+    micro_batch_size: int = 8,
+    num_epochs: int = 50,
     learning_rate: float = 3e-4,
     cutoff_len: int = 400,
     val_set_size: int = 2000,
     # lora hyperparams
-    lora_r: int = 8,
-    lora_alpha: int = 16,
+    lora_r: int = 16,
+    lora_alpha: int = 32,
     lora_dropout: float = 0.05,
-    ## Configure Optimize HARDWARE memory 
-    deepspeed_configure="", 
-    optimizer_type="", 
 
     ## Depend on Different Model Architecutre setting this different
     lora_target_modules: List[str] = TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING["bloom"],
