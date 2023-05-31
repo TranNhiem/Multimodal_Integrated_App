@@ -123,7 +123,7 @@ def train(
     # training hyperparams
     num_gpus=8,
     batch_size: int = 123,
-    micro_batch_size: int = 4,
+    micro_batch_size: int = 3,
     num_epochs: int = 30,
     learning_rate: float = 3e-4,
     cutoff_len: int = 400,
