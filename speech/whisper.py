@@ -16,9 +16,17 @@ small	12	    768	    12	    244 M	    ✓	                    ✓
 medium	24	    1024	16	    769 M	    ✓	                    ✓
 large	32	    1280	20	    1550 M	    x	                    ✓
 
+## Reference Design 
+1. Pipeline Optimization For 70X Faster Inference original Pytorch and 2 times faster than Pytorch
+https://github.com/openai/whisper/discussions/1277  
+Whisper JAX implementation: https://github.com/sanchit-gandhi/whisper-jax 
 
-Pipeline 
-1.
+2. Pipeline for 5x Faster Finetuning Whisper Model via LORA 
+https://github.com/Vaibhavs10/fast-whisper-finetuning 
+
+3. Whisper Model on C++ and 4 bits and 8 bits Optimization 
+https://github.com/ggerganov/whisper.cpp 
+
 '''
 
 
@@ -33,6 +41,8 @@ The Whisper feature extractor performs two operations:
  and those longer that 30s are truncated to 30s
 2. Converts the audio inputs to log-Mel spectrogram input features, a visual representation of the audio and the form of the input 
     expected by the Whisper model
+
+3. 
 '''
 ### Load WhisperFeatureExtractor
 import os

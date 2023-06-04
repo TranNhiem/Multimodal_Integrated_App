@@ -114,23 +114,23 @@ TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING ={
 
 def train(
     # model/data params
-    base_model: str = "bigscience/bloomz-1b7", #"facebook/opt-350m",  # the only required argument
-    cache_dir: str ="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/pretrained_weights/BLOOMZ/", #"/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/pretrained_weights/OPT/",
+    base_model: str = "bigscience/bloomz-7b1", #"facebook/opt-350m",  # the only required argument
+    cache_dir: str ="/data/rick/pretrained_weights/BLOOMZ/", #"/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/pretrained_weights/OPT/",
     # data_path:  str="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/Instruction_finetune_dataset/Alpaca/translated_tasks_de_deepl_4k.json",
-    data_path: str = "/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/Instruction_finetune_dataset/converted_Traditional_chinese_Belle_open_source_0_5M.json", #"/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json",
+    data_path: str = "/data/rick/Instruction_finetune_dataset/converted_Traditional_chinese_Belle_open_source_0_5M.json", #"/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json",
     output_dir: str = "./lora-alpaca_BlOOMZ_1b7m_0_5M_Traditional_CN/",
-    template_json_path= "/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/data_structure_template/alpaca.json",
+    template_json_path= "/data/rick/LLM/Multimodal_Integrated_App/Language/data/data_structure_template/alpaca.json",
     # training hyperparams
-    num_gpus=8,
-    batch_size: int = 123,
-    micro_batch_size: int = 3,
+    num_gpus=1,
+    batch_size: int = 256,
+    micro_batch_size: int = 16,
     num_epochs: int = 30,
     learning_rate: float = 3e-4,
-    cutoff_len: int = 400,
+    cutoff_len: int = 500,
     val_set_size: int = 2000,
     # lora hyperparams
-    lora_r: int = 8,
-    lora_alpha: int = 16,
+    lora_r: int = 16,
+    lora_alpha: int = 32,
     lora_dropout: float = 0.05,
     ## Configure Optimize HARDWARE memory 
     deepspeed_configure="", 
@@ -144,7 +144,7 @@ def train(
     group_by_length: bool = False,  # faster, but produces an odd training loss curve
     # wandb params
     wandb_project: str = "Instructed_finetune_LLM",
-    wandb_run_name: str = "Instruction_Finetune_BLOOM_1b7m_LORA_0_5M_Tradition_CN",
+    wandb_run_name: str = "Instruction_Finetune_BLOOM_7b1m_LORA_0_5M_Tradition_CN",
     wandb_watch: str = "all",  # options: false | gradients | all
     wandb_log_model: str = "true",  # options: false | true
     resume_from_checkpoint: str = None,  # either training checkpoint or final adapter
@@ -336,8 +336,6 @@ def train(
 
     '''
 
-
-
     trainer = transformers.Trainer(
         model=model,
         train_dataset=train_data,
@@ -351,7 +349,7 @@ def train(
             fp16=True,
             logging_steps=10,
             #fsdp= "full_shard auto_wrap offload",
-            deepspeed="/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/deep_speed_configure/deep_speed_stage_3.json",
+            deepspeed="/data/rick/LLM/Multimodal_Integrated_App/Language/deep_speed_configure/deep_speed_stage_3.json",
             #optim=bnb.optim.Adam8bit(), #"adamw_torch",
             optim="adamw_bnb_8bit",#, ['adamw_hf', 'adamw_torch', 'adamw_torch_fused', 'adamw_torch_xla', 'adamw_apex_fused', 'adafactor', 'adamw_bnb_8bit', 'adamw_anyprecision', 'sgd', 'adagrad']
             evaluation_strategy="steps" if val_set_size > 0 else "no",

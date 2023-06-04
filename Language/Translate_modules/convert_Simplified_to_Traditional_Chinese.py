@@ -10,6 +10,8 @@ def convert_simplified_to_traditional(text):
 
 #file_path = "/data/rick/Instruction_finetune_dataset/train_2M_CN.json"
 file_path= "/data/rick/Instruction_finetune_dataset/Belle_open_source_1M.json"
+
+## Dealing with Convert 
 def load_input_data(INPUT_TASKS_PATH):
     with open(INPUT_TASKS_PATH, 'r') as json_file:
         content = json_file.read()
@@ -32,6 +34,9 @@ def load_input_data(INPUT_TASKS_PATH):
     final_df = pd.concat(df_list, ignore_index=True)
     print(f"Complete Loaded {len(final_df)} JSON objects.")
     return final_df
+
+
+
 
 input_data = load_input_data(file_path)
 

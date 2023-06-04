@@ -176,25 +176,25 @@ from langchain import LLMChain
 
 weight_path="/data/rick/pretrained_weights/Alpaca/"
 
-tokenizer = AutoTokenizer.from_pretrained("chavinlo/alpaca-native", cache_dir=weight_path, )
-base_model = AutoModelForCausalLM.from_pretrained(
-    "chavinlo/alpaca-native",
-    load_in_8bit=True,
-    device_map='auto',
-    cache_dir=weight_path,)
+# tokenizer = AutoTokenizer.from_pretrained("chavinlo/alpaca-native", cache_dir=weight_path, )
+# base_model = AutoModelForCausalLM.from_pretrained(
+#     "chavinlo/alpaca-native",
+#     load_in_8bit=True,
+#     device_map='auto',
+#     cache_dir=weight_path,)
 
-pipe = pipeline(
-    "text-generation",
-    model=base_model, 
-    tokenizer=tokenizer, 
-    max_length=800,
-    temperature=0.6,
-    top_p=0.95,
-    repetition_penalty=1.2
-)
+# pipe = pipeline(
+#     "text-generation",
+#     model=base_model, 
+#     tokenizer=tokenizer, 
+#     max_length=800,
+#     temperature=0.6,
+#     top_p=0.95,
+#     repetition_penalty=1.2
+# )
 
 ## Add the model the base Configurations to manipulate the Model Decoding Method 
-local_llm = HuggingFacePipeline(pipeline=pipe)
+# local_llm = HuggingFacePipeline(pipeline=pipe)
 
 template = """
 The conversation between a human input and an AI assistant follows a specific pattern. The human provides an instruction or request that describes a task or action they would like the AI assistant to perform. The AI assistant then generates a response that appropriately completes the request or fulfills the given instruction.
@@ -225,3 +225,99 @@ print(conversation_with_summary.predict(input=" I also want to create the lightw
 
 print(conversation_with_summary.predict(input=" can you write an example python snipe code for this"))
 
+## -----------------------------------------------------------------
+## New Gradio WebAPP interface For New Feature and Advance interface 
+## -----------------------------------------------------------------
+
+with gr.Blocks() as demo:
+    gr.Markdown("""<h1><center> Alpha Assistant via SIF LLM </center></h1>""")
+    
+    with gr.Row(scale=4, min_width=300, min_height=100):
+        base_model_input = gr.Dropdown( ["bigscience/bloomz-7b1", "bigscience/bloomz-1b7", ],value="bigscience/bloomz-1b7", label="Choosing LLM", show_label=True)
+                
+    chatbot = gr.Chatbot(label="Assistant").style(height=500)
+    
+    with gr.Row():
+        message = gr.Textbox(show_label=False, placeholder="Enter your prompt and press enter", visible=True)
+    state = gr.State()
+    
+    # max_token_limit=40 - token limits needs transformers installed
+    memory= ConversationSummaryBufferMemory(llm=OpenAI(), max_token_limit=40)
+
+    def respond(message, chat_history, temperature=0.7, top_p=1.0, max_output_tokens=512, base_model='bloomz_1b7',):
+        
+        weight_path="/data/rick/pretrained_weights/BLOOMZ/"
+        lora_checkpoint="path to save model"
+        ## Loading Original the Model and Tokenizer from Huggingface  
+        # tokenizer = AutoTokenizer.from_pretrained(base_model, cache_dir=weight_path, )
+        # base_model = AutoModelForCausalLM.from_pretrained(
+        #                     base_model,
+        #                     load_in_8bit=True,
+        #                     device_map='auto',
+        #                     cache_dir=weight_path,)
+
+        ## Loading The FineTuned LoRa Adapter Model 
+        from peft import PeftModel, PeftConfig
+        config = PeftConfig.from_pretrained(lora_checkpoint, cache_dir=weight_path)
+        model = AutoModelForCausalLM.from_pretrained(config.base_model_name_or_path, return_dict=True, load_in_8bit=True, device_map='auto')
+        tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
+        # Load the Lora model
+        model = PeftModel.from_pretrained(model, peft_model_id)
+
+        pipe = pipeline(
+            "text-generation",
+            model=base_model, 
+            tokenizer=tokenizer, 
+            max_length=800,
+            temperature=0.6,
+            top_p=0.95,
+            repetition_penalty=1.2
+        )
+        local_llm = HuggingFacePipeline(pipeline=pipe)
+
+        
+        conversation_with_summary = ConversationChain(
+            llm=llm, 
+            memory=memory, 
+            verbose=True, 
+            prompt= prompt, 
+        )
+        bot_message = conversation_with_summary.predict(input=message)
+        message= "👤: "+ message
+        bot_message= "😃: "+ bot_message
+        chat_history.append((message, bot_message))
+        #time.sleep(1)
+        return "", chat_history
+     
+     
+    ## For Setting Hyperparameter 
+    with gr.Accordion("Parameters", open=False, visible=True) as parameter_row:
+        temperature = gr.Slider(
+            minimum=0.0,
+            maximum=1.0,
+            value=0.7,
+            step=0.1,
+            interactive=True,
+            label="Temperature",
+        )
+        top_p = gr.Slider(
+            minimum=0.0,
+            maximum=1.0,
+            value=1.0,
+            step=0.1,
+            interactive=True,
+            label="Top P",
+        )
+        max_output_tokens = gr.Slider(
+            minimum=16,
+            maximum=1024,
+            value=512,
+            step=64,
+            interactive=True,
+            label="Max output tokens",
+        )
+
+    message.submit(respond, inputs=[message, chatbot, temperature, top_p, max_output_tokens], outputs=[message, chatbot], queue=False, )
+    
+demo.queue()
+demo.launch()
