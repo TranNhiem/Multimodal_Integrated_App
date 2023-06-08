@@ -222,9 +222,21 @@ def translate_text_openai(text):
     top_p=1.0,
     frequency_penalty=0.3,
     presence_penalty=0.0)
-    translated_text = response.choices[0].message.content.strip()
+    #translated_text = response.choices[0].message.content.strip()
+    # translated_text= response['choices'][0]['message']['content'].strip()
+    # return translated_text
+    ## Adding Mechanism to handle the response key error content output
     
-    return translated_text
+    choices = response.get('choices')
+    if choices and len(choices) > 0:
+        message = choices[0].get('message')
+        if message:
+            translated_text = message.get('content')
+            if translated_text:
+                return translated_text
+
+    print(f"Skipping translation for text: {text}")
+    return None
 
 ## Save the translated subset to a JSON file
 def save_translated_subset_to_json(translated_subset_df, file_path):
@@ -500,7 +512,8 @@ def translate_row(row):
     for column in ['instruction', 'input', 'output']:
         translated_text = translate_text_with_error_handling(row[column])
 
-        if translated_text is None or (isinstance(translated_text, list) and translated_text[0].startswith("|||TRANSLATION_FAILED|||")):
+        # if translated_text is None or (isinstance(translated_text, list) and translated_text[0].startswith("|||TRANSLATION_FAILED|||")):
+        if translated_text is None or (isinstance(translated_text, list) and translated_text and translated_text[0] and translated_text[0].startswith("|||TRANSLATION_FAILED|||")):
             untranslated_content = translated_text[0].replace("|||TRANSLATION_FAILED|||", "", 1) if translated_text else "None"
             print(f"Skipping content: {untranslated_content}")
             skip_row = True
@@ -518,10 +531,11 @@ def translate_subset_df(subset_df, checkpoint_interval, start, end):
             translated_subset_rows.append(translated_row)
 
         if len(translated_subset_rows) % checkpoint_interval == 0 or index == len(subset_df) - 1:
-            translated_subset_df = pd.DataFrame(translated_subset_rows, columns=['instruction', 'input', 'output'])
-            checkpoint_index = index + 1
-            save_translated_subset_to_json(translated_subset_df, f'./Vietnamese_Translation_Azure_GPT_35_{start}_{end}_checkpoint_{checkpoint_index}.json')
-            translated_subset_rows = []
+            if translated_subset_rows:
+                translated_subset_df = pd.DataFrame(translated_subset_rows, columns=['instruction', 'input', 'output'])
+                checkpoint_index = index + 1
+                save_translated_subset_to_json(translated_subset_df, f'./Vietnamese_Translation_Azure_GPT_35_{start}_{end}_checkpoint_{checkpoint_index}.json')
+                translated_subset_rows = []
 
     return pd.DataFrame(translated_subset_rows, columns=['instruction', 'input', 'output'])
 
@@ -530,7 +544,7 @@ def main():
     setup_api(api="azure") # "azure"
     input_data = load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json")
     ## get the length of the dataframe
-    start = 0
+    start = 140
     end = 10000
     subset_df = input_data.iloc[start:end]
     total_rows = len(subset_df)
