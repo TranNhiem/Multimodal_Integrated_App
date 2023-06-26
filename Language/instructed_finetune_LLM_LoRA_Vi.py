@@ -59,21 +59,36 @@ class Prompter(object):
                 f"Using prompt template {template_name}: {self.template['description']}"
             )
 
+    # def generate_prompt(
+    #     self,
+    #     instruction: str,
+    #     input: Union[None, str] = None,
+    #     label: Union[None, str] = None,
+    # ) -> str:
     def generate_prompt(
         self,
-        instruction: str,
+        prompt: str,
         input: Union[None, str] = None,
         label: Union[None, str] = None,
     ) -> str:
         # returns the full prompt from instruction and optional input
         # if a label (=response, =output) is provided, it's also appended.
+        # if input:
+        #     res = self.template["prompt_input"].format(
+        #         instruction=instruction, input=input
+        #     )
+        # else:
+        #     res = self.template["prompt_no_input"].format(
+        #         instruction=instruction
+        #     )
+
         if input:
             res = self.template["prompt_input"].format(
-                instruction=instruction, input=input
+                prompt=prompt, input=input
             )
         else:
             res = self.template["prompt_no_input"].format(
-                instruction=instruction
+                prompt=prompt
             )
         if label:
             res = f"{res}{label}"
@@ -114,17 +129,17 @@ TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING ={
 
 def train(
     # model/data params
-    base_model: str = "ckip-joint/bloom-1b1-zh", #"facebook/opt-350m",  # the only required argument
-    cache_dir: str ="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/pretrained_weights/BLOOMZ/", #"/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/pretrained_weights/OPT/",
-    data_path:  str="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/Instruction_finetune_dataset/converted_Traditional_chinese_Belle_open_source_0_5M.json",
-    #data_path: str =  "/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json",#"/data/rick/Instruction_finetune_dataset/converted_Traditional_chinese_Belle_open_source_0_5M.json",
-    output_dir: str = "./lora-alpaca_BlOOMZ_1b7m_0_5M_Traditional_CN/",
-    template_json_path= "/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/data_structure_template/alpaca.json", #"/data/rick/LLM/Multimodal_Integrated_App/Language/data/data_structure_template/alpaca.json",
+    base_model: str = "bigscience/bloomz-1b7", #"facebook/opt-350m",  # the only required argument
+    cache_dir: str ="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/pretrained_weights/BLOOMZ/",#"/data/rick/pretrained_weights/BLOOMZ/", #
+    data_path:  str="/media/rick/f7a9be3d-25cd-45d6-b503-7cb8bd32dbd5/Instruction_finetune_dataset/alpaca_gpt4all/alpaca_gpt4all_merged_data_.json",
+    #data_path: str = "/data/rick/LLM/Multimodal_Integrated_App/Language/data/Vietnamese_dataset/alpaca_gpt4all_merged_data_.json", #"/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json",
+    output_dir: str = "./Instruction_Finetune_BLOOM_1b7m_LORA_Alpaca_GPT4all_Vi/",
+    template_json_path= "/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/data_structure_template/alpaca_vi.json",
     # training hyperparams
     num_gpus=8,
     batch_size: int = 240,
     micro_batch_size: int = 3,
-    num_epochs: int = 10,
+    num_epochs: int = 15,
     learning_rate: float = 3e-4,
     cutoff_len: int = 400,
     val_set_size: int = 2000,
@@ -143,11 +158,11 @@ def train(
     add_eos_token: bool = False,
     group_by_length: bool = False,  # faster, but produces an odd training loss curve
     # wandb params
-    wandb_project: str = "Instructed_finetune_LLM",
-    wandb_run_name: str = "Instruction_Finetune_BLOOM_1b7m_LORA_0_5M_Tradition_CN",
+    wandb_project: str = "Vietnamese_LLMs",
+    wandb_run_name: str = "Instruction_Finetune_BLOOM_1b7m_LORA_Alpaca_Vi",
     wandb_watch: str = "all",  # options: false | gradients | all
     wandb_log_model: str = "true",  # options: false | true
-    resume_from_checkpoint: str = None, #"/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/lora-alpaca_BlOOMZ_1b7m_0_5M_Traditional_CN/checkpoint-48200/",  # either training checkpoint or final adapter
+    resume_from_checkpoint: str =None, #"/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/Instruction_Finetune_BLOOM_1b7m_LORA_Alpaca_GPT4all_Vi/checkpoint-600",  # either training checkpoint or final adapter
     prompt_template_name: str = "alpaca",  # The prompt template to use, will default to alpaca.
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
@@ -245,15 +260,24 @@ def train(
         return result
 
     def generate_and_tokenize_prompt(data_point):
+        # full_prompt = prompter.generate_prompt(
+        #     data_point["instruction"],
+        #     data_point["input"],
+        #     data_point["output"],
+        # )
+
         full_prompt = prompter.generate_prompt(
-            data_point["instruction"],
-            data_point["input"],
-            data_point["output"],
+            data_point["prompt"],
+            # data_point["input"],
+            data_point["response"],
         )
         tokenized_full_prompt = tokenize(full_prompt)
         if not train_on_inputs:
+            # user_prompt = prompter.generate_prompt(
+            #     data_point["instruction"], data_point["input"]
+            # )
             user_prompt = prompter.generate_prompt(
-                data_point["instruction"], data_point["input"]
+                data_point["prompt"], data_point["response"]
             )
             tokenized_user_prompt = tokenize(
                 user_prompt, add_eos_token=add_eos_token
