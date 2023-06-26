@@ -302,7 +302,7 @@ def process_chunks_openai(chunks):
     translated_texts = []
     for text in chunks:
         if is_translatable(text):
-            preprocessed_text = preprocess_text(text, remove_digits=False, to_lowercase=True, remove_stopwords=False, stemming=True, lemmatization=True, remove_code=True)
+            preprocessed_text = preprocess_text(text, remove_digits=False, to_lowercase=True, remove_stopwords=True, stemming=True, lemmatization=True, remove_code=True)
             translated_text = translate_text_openai(preprocessed_text)
             #translated_text= translate_text_openai_with_backoff(preprocessed_text)
             translated_texts.append(translated_text)
@@ -310,18 +310,22 @@ def process_chunks_openai(chunks):
             translated_texts.append(text)
     return translated_texts
 
-def translate_text_openai_parallel(texts, chunk_size=50):
+def translate_text_openai_parallel(texts, chunk_size=10):
     chunked_texts = [texts[i:i + chunk_size] for i in range(0, len(texts), chunk_size)]
+    print(f'Chunks Text before translate: {len(chunked_texts)}')
+    print(f'Chunks Text translate print: {chunked_texts}')
     # print(f'Chunks Text before translate: {len(chunked_texts)}')
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(process_chunks_openai, chunk) for chunk in chunked_texts]
-        results = [future.result() for future in concurrent.futures.as_completed(futures)]
+    # list_test=[]
+    # with concurrent.futures.ThreadPoolExecutor() as executor:
+    #     #futures = [executor.submit(process_chunks_openai, chunk) for chunk in chunked_texts]
+    #     futures=[list_test.append(chunk) for chunk in chunked_texts]
+    #     results = [future.result() for future in concurrent.futures.as_completed(futures)]
+       
+    # translated_texts = []
+    # for result in results:
+    #     translated_texts.extend(result)
 
-    translated_texts = []
-    for result in results:
-        translated_texts.extend(result)
-
-    return translated_texts
+    return chunked_texts #translated_texts
 
 def translate_text_with_error_handling(text):
     try:
@@ -337,31 +341,32 @@ def test_translation_update(df, start=0, end=4, subset=True):
     else:
         subset_df = df
 
-    # # translated_instructions = []
-    # # translated_inputs = []
-    # # translated_outputs = []
+    translated_instructions = []
+    translated_inputs = []
+    translated_outputs = []
    
    
-    # try:
-    #     translated_instructions = translate_text_openai_parallel(subset_df['instruction'].tolist())
-    #     translated_inputs = translate_text_openai_parallel(subset_df['input'].tolist())
-    #     translated_outputs = translate_text_openai_parallel(subset_df['output'].tolist())
-    # # translated_instructions.extend(translate_text_openai_parallel(subset_df['instruction'].tolist()))
-    # # translated_inputs.extend(translate_text_openai_parallel(subset_df['input'].tolist()))
-    # # translated_outputs.extend(translate_text_openai_parallel(subset_df['output'].tolist()))
-    # except openai.error.InvalidRequestError:
-    #     print("Skipping data due to content filtering.")
+    try:
+        translated_instructions = translate_text_openai_parallel(subset_df['instruction'].tolist())
+        translated_inputs = translate_text_openai_parallel(subset_df['input'].tolist())
+        translated_outputs = translate_text_openai_parallel(subset_df['output'].tolist())
+    # translated_instructions.extend(translate_text_openai_parallel(subset_df['instruction'].tolist()))
+    # translated_inputs.extend(translate_text_openai_parallel(subset_df['input'].tolist()))
+    # translated_outputs.extend(translate_text_openai_parallel(subset_df['output'].tolist()))
+    except openai.error.InvalidRequestError:
+        print("Skipping data due to content filtering.")
     
-    # translated_subset_df = pd.DataFrame({
-    # 'instruction': translated_instructions,
-    # 'input': translated_inputs,
-    # 'output': translated_outputs
-    # })
+    translated_subset_df = pd.DataFrame({
+    'instruction': translated_instructions,
+    'input': translated_inputs,
+    'output': translated_outputs
+    })
 
-    # save_translated_subset_to_json(
-    #     translated_subset_df,
-    #     f'./data/output/Vietnamese_Translation_Azure_GPT_35_{start}_{end}_new.json'
-    # )
+    save_translated_subset_to_json(
+        translated_subset_df,
+        f'./data/output/Vietnamese_Translation_Azure_GPT_35_test_.json'
+        #f'./data/output/Vietnamese_Translation_Azure_GPT_35_{start}_{end}_new.json'
+    )
 
 
     
@@ -369,39 +374,39 @@ def test_translation_update(df, start=0, end=4, subset=True):
     #     ##Raise the exception again to halt the program
     #     raise e
 
-    translated_instructions = []
-    translated_inputs = []
-    translated_outputs = []
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
-        for _, row in subset_df.iterrows():
-            instruction = row['instruction']
-            input_text = row['input']
-            output_text = row['output']
-            futures.append(executor.submit(translate_text_with_error_handling, instruction))
-            futures.append(executor.submit(translate_text_with_error_handling, input_text))
-            futures.append(executor.submit(translate_text_with_error_handling, output_text))
+    # translated_instructions = []
+    # translated_inputs = []
+    # translated_outputs = []
+    # with concurrent.futures.ThreadPoolExecutor() as executor:
+    #     futures = []
+    #     for _, row in subset_df.iterrows():
+    #         instruction = row['instruction']
+    #         input_text = row['input']
+    #         output_text = row['output']
+    #         futures.append(executor.submit(translate_text_with_error_handling, instruction))
+    #         futures.append(executor.submit(translate_text_with_error_handling, input_text))
+    #         futures.append(executor.submit(translate_text_with_error_handling, output_text))
 
-        for future in concurrent.futures.as_completed(futures):
-            translated_text = future.result()
-            if translated_text is not None:
-                if len(translated_instructions) < len(subset_df):
-                    translated_instructions.append(translated_text)
-                elif len(translated_inputs) < len(subset_df):
-                    translated_inputs.append(translated_text)
-                elif len(translated_outputs) < len(subset_df):
-                    translated_outputs.append(translated_text)
+    #     for future in concurrent.futures.as_completed(futures):
+    #         translated_text = future.result()
+    #         if translated_text is not None:
+    #             if len(translated_instructions) < len(subset_df):
+    #                 translated_instructions.append(translated_text)
+    #             elif len(translated_inputs) < len(subset_df):
+    #                 translated_inputs.append(translated_text)
+    #             elif len(translated_outputs) < len(subset_df):
+    #                 translated_outputs.append(translated_text)
 
-    translated_subset_df = pd.DataFrame({
-        'instruction': translated_instructions,
-        'input': translated_inputs,
-        'output': translated_outputs
-    })
+    # translated_subset_df = pd.DataFrame({
+    #     'instruction': translated_instructions,
+    #     'input': translated_inputs,
+    #     'output': translated_outputs
+    # })
 
-    save_translated_subset_to_json(
-        translated_subset_df,
-        f'./data/output/Vietnamese_Translation_Azure_GPT_35_{start}_{end}.json'
-    )
+    # save_translated_subset_to_json(
+    #     translated_subset_df,
+    #     f'./data/output/Vietnamese_Translation_Azure_GPT_35_{start}_{end}.json'
+    # )
 
     #save_translated_subset_to_json(translated_subset_df, './data/output/Vietnamese_Translation_Azure_GPT_35_0_10K.json')
 
@@ -416,7 +421,7 @@ def main():
         #print(f"The length of the dataframe is: {df_length}")
         # test_translation_update(input_data, start=0,end=10000, subset=True)
         ##--------------------Another Tried via Saving Automatically --------------------------
-        input_data= input_data.iloc[0:20]
+        input_data= input_data.iloc[0:4]
         # start = 0 ## Change this start
         # end = 10000 ## 10000
         # while start < end:
@@ -439,7 +444,7 @@ def main():
         
         # Initialize start position
         start = 0
-        end=10
+        end=4
         test_translation_update(input_data[start:end], start=start, end=end, subset=True)
         
         # while start < len(input_data):

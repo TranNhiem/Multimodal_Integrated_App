@@ -543,7 +543,7 @@ def translate_subset_df(subset_df, checkpoint_interval, start, end):
                     translated_subset_df = pd.DataFrame(translated_subset_rows, columns=['prompt', 'response'])
                     
                     checkpoint_index = index + 1
-                    save_translated_subset_to_json(translated_subset_df, f'./Vietnamese_Translation_Azure_GPT_4_{start}_{end}_checkpoint_{checkpoint_index}.json')
+                    save_translated_subset_to_json(translated_subset_df, f'./Dolly/Vietnamese_Dolly_Translation_Azure_GPT_4_{start}_{end}_checkpoint_{checkpoint_index}.json')
                     translated_subset_rows = []
                     num_successful_translations = 0
 
@@ -553,15 +553,14 @@ def translate_subset_df(subset_df, checkpoint_interval, start, end):
 def main():
     setup_api(api="azure") # "azure"
     #input_data = load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/alpaca_52k_instruction_cleaned.json")
-    input_data= load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/lima_format_structure_train.json")
+    input_data= load_input_data("/home/rick/Integrated_APP/Multimodal_Integrated_App/Language/data/Dolly_train_data_format.json")
     ## get the length of the dataframe
-    start = 0
-    end = 1030
+    start = 13162
+    end = 15011
     subset_df = input_data.iloc[start:end]
     total_rows = len(subset_df)
     checkpoint_interval = math.ceil(total_rows * 0.01)
     translated_subset_df = translate_subset_df(subset_df, checkpoint_interval, start, end)
-
 
 if __name__ == "__main__":
     start_time = time.time()
